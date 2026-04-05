@@ -46,8 +46,9 @@ def salveaza_fisier(uploaded_file, prefix="img"):
     if uploaded_file is None:
         return ""
 
+    nume_original = getattr(uploaded_file, "name", "poza.jpg")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nume_fisier = f"{prefix}_{timestamp}_{uploaded_file.name}"
+    nume_fisier = f"{prefix}_{timestamp}_{nume_original}"
     cale = os.path.join(FOLDER_POZE, nume_fisier)
 
     with open(cale, "wb") as f:
@@ -74,7 +75,7 @@ st.title("Platforma de sesizari urbane - Rm. Valcea")
 st.write("Completeaza formularul, selecteaza locatia pe harta si adauga optional o fotografie.")
 
 # ---------------------------
-# layout
+# layout principal
 # ---------------------------
 col1, col2 = st.columns([1, 1.2])
 
@@ -97,18 +98,34 @@ with col1:
 
     st.markdown("### Fotografie")
 
-    poza_upload = st.file_uploader(
-        "Incarca o fotografie",
-        type=["jpg", "jpeg", "png"]
+    mod_foto = st.radio(
+        "Alege cum vrei sa adaugi fotografia",
+        ["Fara fotografie", "Adauga foto", "Fa o fotografie pe loc"],
+        index=0
     )
 
-    poza_camera = st.camera_input("Sau fa o poza direct")
+    poza_upload = None
+    poza_camera = None
 
-    if poza_upload is not None:
-        st.image(poza_upload, caption="Fotografie incarcata", use_container_width=True)
+    if mod_foto == "Adauga foto":
+        poza_upload = st.file_uploader(
+            "Selecteaza o fotografie",
+            type=["jpg", "jpeg", "png"],
+            key="upload_foto"
+        )
 
-    if poza_camera is not None:
-        st.image(poza_camera, caption="Fotografie facuta cu camera", use_container_width=True)
+        if poza_upload is not None:
+            st.image(poza_upload, caption="Fotografie selectata", use_container_width=True)
+
+    elif mod_foto == "Fa o fotografie pe loc":
+        st.write("Camera apare doar dupa ce ai ales aceasta optiune.")
+        poza_camera = st.camera_input(
+            "Fotografie",
+            key="camera_foto"
+        )
+
+        if poza_camera is not None:
+            st.image(poza_camera, caption="Fotografie facuta pe loc", use_container_width=True)
 
     st.markdown("### Localizare")
 
@@ -157,6 +174,7 @@ with col2:
 
     m = folium.Map(location=centru_harta, zoom_start=zoom_harta)
 
+    # marker-ele sesizarilor deja salvate
     if os.path.exists(FISIER_DATE):
         df_harta = pd.read_csv(FISIER_DATE)
         for _, rand in df_harta.iterrows():
@@ -172,6 +190,7 @@ with col2:
             except:
                 pass
 
+    # marker pentru punctul selectat curent
     if st.session_state.selected_lat is not None and st.session_state.selected_lon is not None:
         folium.Marker(
             [st.session_state.selected_lat, st.session_state.selected_lon],
@@ -180,9 +199,16 @@ with col2:
             icon=folium.Icon(icon="info-sign")
         ).add_to(m)
 
-    map_data = st_folium(m, width=800, height=550, returned_objects=["last_clicked"])
+    map_data = st_folium(
+        m,
+        width=800,
+        height=550,
+        returned_objects=["last_clicked"]
+    )
 
+# ---------------------------
 # click pe harta
+# ---------------------------
 if map_data and map_data.get("last_clicked"):
     click_lat = map_data["last_clicked"]["lat"]
     click_lon = map_data["last_clicked"]["lng"]
@@ -195,7 +221,9 @@ if map_data and map_data.get("last_clicked"):
         st.session_state.selected_lon = click_lon
         st.rerun()
 
+# ---------------------------
 # trimitere sesizare
+# ---------------------------
 st.markdown("---")
 
 if st.button("Trimite sesizarea"):
@@ -206,7 +234,6 @@ if st.button("Trimite sesizarea"):
     else:
         nume_poza = ""
 
-        # prioritate: poza facuta cu camera, apoi poza uploadata
         if poza_camera is not None:
             nume_poza = salveaza_fisier(poza_camera, prefix="camera")
         elif poza_upload is not None:
@@ -236,7 +263,9 @@ if st.button("Trimite sesizarea"):
         st.session_state.selected_lon = None
         st.rerun()
 
+# ---------------------------
 # tabel cu sesizari
+# ---------------------------
 if os.path.exists(FISIER_DATE):
     st.markdown("---")
     st.subheader("Sesizari salvate")

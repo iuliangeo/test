@@ -247,36 +247,36 @@ with col1:
         categorie_sugerata = "Alta"
         subcategorie_sugerata = "Alta problema"
 
-categorie = st.selectbox(
-    "Categorie finala",
-    LISTA_CATEGORII,
-    index=LISTA_CATEGORII.index(categorie_sugerata)
-)
-
-subcategorie = st.selectbox(
-    "Subcategorie finala",
-    CATEGORII[categorie],
-    index=CATEGORII[categorie].index(subcategorie_sugerata)
-    if subcategorie_sugerata in CATEGORII[categorie]
-    else 0
-)
-st.markdown("### Fotografie")
-
-mod_foto = st.radio(
-        "Alege cum vrei sa adaugi fotografia",
-        ["Fara fotografie", "Adauga foto", "Fa o fotografie pe loc"],
-        index=0
+    categorie = st.selectbox(
+        "Categorie finala",
+        LISTA_CATEGORII,
+        index=LISTA_CATEGORII.index(categorie_sugerata)
     )
 
-poza_upload = None
-poza_camera = None
-
-    if mod_foto == "Adauga foto":
-        poza_upload = st.file_uploader(
-            "Selecteaza o fotografie",
-            type=["jpg", "jpeg", "png"],
-            key="upload_foto"
+    subcategorie = st.selectbox(
+        "Subcategorie finala",
+        CATEGORII[categorie],
+        index=CATEGORII[categorie].index(subcategorie_sugerata)
+        if subcategorie_sugerata in CATEGORII[categorie]
+        else 0
+    )
+    st.markdown("### Fotografie")
+    
+    mod_foto = st.radio(
+            "Alege cum vrei sa adaugi fotografia",
+            ["Fara fotografie", "Adauga foto", "Fa o fotografie pe loc"],
+            index=0
         )
+    
+    poza_upload = None
+    poza_camera = None
+    
+        if mod_foto == "Adauga foto":
+            poza_upload = st.file_uploader(
+                "Selecteaza o fotografie",
+                type=["jpg", "jpeg", "png"],
+                key="upload_foto"
+            )
 
         if poza_upload is not None:
             st.image(poza_upload, caption="Fotografie selectata", use_container_width=True)

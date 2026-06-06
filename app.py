@@ -9,16 +9,30 @@ from streamlit_folium import st_folium
 from streamlit_js_eval import get_geolocation
 from openai import OpenAI
 
+
+# ---------------------------
+# configurare pagina
+# ---------------------------
+st.set_page_config(page_title="Sesizari urbane RM Valcea", layout="wide")
+
+
+# ---------------------------
+# client OpenAI
+# ---------------------------
 client = OpenAI(
     api_key=st.secrets["OPENAI_API_KEY"]
 )
 
-st.set_page_config(page_title="Sesizari urbane RM Valcea", layout="wide")
 
+# ---------------------------
+# constante
+# ---------------------------
 FISIER_DATE = "sesizari.csv"
 FOLDER_POZE = "poze"
 CENTRU_LAT = 45.1047
 CENTRU_LON = 24.3756
+
+FEATURE_LAYER_URL = "https://services.arcgis.com/9nrie6KNVyjacEqa/arcgis/rest/services/Rm.Valcea/FeatureServer/0"
 
 CATEGORII = {
     "Mobilitate si trafic": [
@@ -82,14 +96,16 @@ CATEGORII = {
 
 LISTA_CATEGORII = list(CATEGORII.keys())
 
-FEATURE_LAYER_URL = "https://services.arcgis.com/9nrie6KNVyjacEqa/arcgis/rest/services/Rm.Valcea/FeatureServer/0"
-
 os.makedirs(FOLDER_POZE, exist_ok=True)
 
 
+# ---------------------------
+# AI clasificare categorie + subcategorie
+# ---------------------------
 def clasifica(text):
     try:
         lista_formatata = ""
+
         for categorie, subcategorii in CATEGORII.items():
             lista_formatata += f"\n{categorie}:\n"
             for sub in subcategorii:
@@ -103,11 +119,11 @@ def clasifica(text):
                     "content": f"""
 Clasifici sesizari urbane pentru o aplicatie GIS.
 
-Alege categoria si subcategoria potrivita din lista:
+Alege categoria si subcategoria potrivita exclusiv din lista de mai jos:
 
 {lista_formatata}
 
-Raspunde strict in JSON, fara explicatii, in forma:
+Raspunde strict in JSON valid, fara explicatii, in forma:
 {{
   "categorie": "numele categoriei",
   "subcategorie": "numele subcategoriei"
@@ -138,10 +154,13 @@ Raspunde strict in JSON, fara explicatii, in forma:
         return categorie, subcategorie
 
     except Exception as e:
-        st.error(f"Eroare AI: {e}")
+        st.warning(f"Clasificarea AI nu a functionat. Se foloseste categoria implicita. Detalii: {e}")
         return "Alta", "Alta problema"
 
 
+# ---------------------------
+# trimitere punct in ArcGIS Online
+# ---------------------------
 def trimite_in_arcgis(descriere, categorie, subcategorie, cat_ai, lat, lon, fotografie=""):
     feature = {
         "geometry": {
@@ -174,6 +193,9 @@ def trimite_in_arcgis(descriere, categorie, subcategorie, cat_ai, lat, lon, foto
     return response.json()
 
 
+# ---------------------------
+# trimitere poza ca attachment in ArcGIS
+# ---------------------------
 def trimite_poza_ca_attachment(object_id, uploaded_file):
     if uploaded_file is None:
         return None
@@ -205,6 +227,9 @@ def trimite_poza_ca_attachment(object_id, uploaded_file):
     return response.json()
 
 
+# ---------------------------
+# salvare poza local pentru backup
+# ---------------------------
 def salveaza_fisier(uploaded_file, prefix="img"):
     if uploaded_file is None:
         return ""
@@ -220,6 +245,9 @@ def salveaza_fisier(uploaded_file, prefix="img"):
     return nume_fisier
 
 
+# ---------------------------
+# session state
+# ---------------------------
 if "selected_lat" not in st.session_state:
     st.session_state.selected_lat = None
 
@@ -230,10 +258,18 @@ if "geo_requested" not in st.session_state:
     st.session_state.geo_requested = False
 
 
+# ---------------------------
+# titlu
+# ---------------------------
 st.title("Platforma de sesizari urbane - Rm. Valcea")
 st.write("Completeaza formularul, selecteaza locatia pe harta si adauga optional o fotografie.")
 
+
+# ---------------------------
+# layout
+# ---------------------------
 col1, col2 = st.columns([1, 1.2])
+
 
 with col1:
     st.subheader("Formular sesizare")
@@ -253,30 +289,35 @@ with col1:
         index=LISTA_CATEGORII.index(categorie_sugerata)
     )
 
-    subcategorie = st.selectbox(
-        "Subcategorie finala",
-        CATEGORII[categorie],
-        index=CATEGORII[categorie].index(subcategorie_sugerata)
+    subcategorie_index = (
+        CATEGORII[categorie].index(subcategorie_sugerata)
         if subcategorie_sugerata in CATEGORII[categorie]
         else 0
     )
+
+    subcategorie = st.selectbox(
+        "Subcategorie finala",
+        CATEGORII[categorie],
+        index=subcategorie_index
+    )
+
     st.markdown("### Fotografie")
-    
+
     mod_foto = st.radio(
-            "Alege cum vrei sa adaugi fotografia",
-            ["Fara fotografie", "Adauga foto", "Fa o fotografie pe loc"],
-            index=0
-        )
-    
+        "Alege cum vrei sa adaugi fotografia",
+        ["Fara fotografie", "Adauga foto", "Fa o fotografie pe loc"],
+        index=0
+    )
+
     poza_upload = None
     poza_camera = None
-    
-        if mod_foto == "Adauga foto":
-            poza_upload = st.file_uploader(
-                "Selecteaza o fotografie",
-                type=["jpg", "jpeg", "png"],
-                key="upload_foto"
-            )
+
+    if mod_foto == "Adauga foto":
+        poza_upload = st.file_uploader(
+            "Selecteaza o fotografie",
+            type=["jpg", "jpeg", "png"],
+            key="upload_foto"
+        )
 
         if poza_upload is not None:
             st.image(poza_upload, caption="Fotografie selectata", use_container_width=True)
@@ -325,6 +366,7 @@ with col1:
     else:
         st.warning("Selecteaza un punct pe harta sau foloseste locatia mea.")
 
+
 with col2:
     st.subheader("Harta")
 
@@ -336,21 +378,6 @@ with col2:
         zoom_harta = 16
 
     m = folium.Map(location=centru_harta, zoom_start=zoom_harta)
-
-    #if os.path.exists(FISIER_DATE):
-    #    df_harta = pd.read_csv(FISIER_DATE)
-    #    for _, rand in df_harta.iterrows():
-     #       try:
-      #          lat = float(rand["latitudine"])
-       #         lon = float(rand["longitudine"])
-        #        popup_text = f"{rand['categorie_finala']} - {rand['descriere']}"
-         #       folium.Marker(
-          #          [lat, lon],
-           #         popup=popup_text,
-            #        tooltip=rand["categorie_finala"]
-             #   ).add_to(m)
-           # except:
-            #    pass
 
     if st.session_state.selected_lat is not None and st.session_state.selected_lon is not None:
         folium.Marker(
@@ -368,6 +395,9 @@ with col2:
     )
 
 
+# ---------------------------
+# click pe harta
+# ---------------------------
 if map_data and map_data.get("last_clicked"):
     click_lat = map_data["last_clicked"]["lat"]
     click_lon = map_data["last_clicked"]["lng"]
@@ -381,6 +411,9 @@ if map_data and map_data.get("last_clicked"):
         st.rerun()
 
 
+# ---------------------------
+# trimitere sesizare
+# ---------------------------
 st.markdown("---")
 
 if st.button("Trimite sesizarea"):
@@ -409,6 +442,7 @@ if st.button("Trimite sesizarea"):
             "descriere": descriere,
             "categorie_sugerata_ai": f"{categorie_sugerata} / {subcategorie_sugerata}",
             "categorie_finala": categorie,
+            "subcategorie_finala": subcategorie,
             "latitudine": st.session_state.selected_lat,
             "longitudine": st.session_state.selected_lon,
             "fotografie": nume_poza

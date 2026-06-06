@@ -28,17 +28,44 @@ os.makedirs(FOLDER_POZE, exist_ok=True)
 
 
 def clasifica(text):
-    text = text.lower()
 
-    if "masina" in text or "parcat" in text or "trotuar" in text:
-        return "Parcare neregulamentara"
-    elif "gunoi" in text or "deseu" in text or "gunoaie" in text or "tomberon" in text:
-        return "Deseuri"
-    elif "groapa" in text or "asfalt" in text or "drum" in text:
-        return "Gropi"
-    elif "lumina" in text or "bec" in text or "iluminat" in text:
-        return "Iluminat"
-    else:
+    try:
+
+        raspuns = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """
+Clasifici sesizari urbane.
+
+Categorii posibile:
+- Parcare neregulamentara
+- Deseuri
+- Gropi
+- Iluminat
+- Alta
+
+Raspunde doar cu numele categoriei.
+"""
+                },
+                {
+                    "role": "user",
+                    "content": text
+                }
+            ],
+            temperature=0
+        )
+
+        categorie = raspuns.choices[0].message.content.strip()
+
+        if categorie in OPTIUNI:
+            return categorie
+
+        return "Alta"
+
+    except Exception as e:
+        st.error(f"Eroare OpenAI: {e}")
         return "Alta"
 
 

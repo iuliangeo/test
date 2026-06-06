@@ -260,7 +260,7 @@ subcategorie = st.selectbox(
     if subcategorie_sugerata in CATEGORII[categorie]
     else 0
 )
-    st.markdown("### Fotografie")
+st.markdown("### Fotografie")
 
     mod_foto = st.radio(
         "Alege cum vrei sa adaugi fotografia",

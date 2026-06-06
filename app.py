@@ -241,11 +241,11 @@ with col1:
     descriere = st.text_area("Descriere problema")
 
     if descriere.strip():
-    categorie_sugerata, subcategorie_sugerata = clasifica(descriere)
-    st.info(f"AI sugereaza: {categorie_sugerata} / {subcategorie_sugerata}")
-else:
-    categorie_sugerata = "Alta"
-    subcategorie_sugerata = "Alta problema"
+        categorie_sugerata, subcategorie_sugerata = clasifica(descriere)
+        st.info(f"AI sugereaza: {categorie_sugerata} / {subcategorie_sugerata}")
+    else:
+        categorie_sugerata = "Alta"
+        subcategorie_sugerata = "Alta problema"
 
 categorie = st.selectbox(
     "Categorie finala",

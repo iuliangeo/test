@@ -7,6 +7,11 @@ from datetime import datetime
 import folium
 from streamlit_folium import st_folium
 from streamlit_js_eval import get_geolocation
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=st.secrets["OPENAI_API_KEY"]
+)
 
 st.set_page_config(page_title="Sesizari urbane RM Valcea", layout="wide")
 

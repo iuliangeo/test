@@ -20,7 +20,67 @@ FOLDER_POZE = "poze"
 CENTRU_LAT = 45.1047
 CENTRU_LON = 24.3756
 
-OPTIUNI = ["Parcare neregulamentara", "Deseuri", "Gropi", "Iluminat", "Alta"]
+CATEGORII = {
+    "Mobilitate si trafic": [
+        "Parcare neregulamentara",
+        "Masina pe trotuar",
+        "Masina pe pista de biciclete",
+        "Trecere de pietoni stearsa",
+        "Indicator rutier lipsa sau deteriorat",
+        "Semafor defect",
+        "Statie autobuz deteriorata"
+    ],
+    "Infrastructura urbana": [
+        "Groapa in carosabil",
+        "Trotuar degradat",
+        "Bordura deteriorata",
+        "Capac canal lipsa sau deteriorat",
+        "Mobilier urban deteriorat",
+        "Loc de joaca deteriorat"
+    ],
+    "Deseuri si salubritate": [
+        "Deseuri abandonate",
+        "Tomberon rasturnat",
+        "Platforma de gunoi murdara",
+        "Moloz abandonat",
+        "Ardere deseuri"
+    ],
+    "Mediu si spatii verzi": [
+        "Arbore uscat",
+        "Arbore taiat ilegal",
+        "Crengi periculoase",
+        "Spatiu verde neintretinut",
+        "Ocupare spatiu verde"
+    ],
+    "Iluminat si siguranta": [
+        "Iluminat public defect",
+        "Zona insuficient iluminata",
+        "Cablu expus",
+        "Cladire abandonata periculoasa",
+        "Element constructiv periculos"
+    ],
+    "Urbanism si domeniu public": [
+        "Ocupare ilegala domeniu public",
+        "Constructie suspecta fara autorizatie",
+        "Gard pe spatiu public",
+        "Publicitate stradala ilegala",
+        "Chiosc amplasat necorespunzator",
+        "Modificare fatada neautorizata"
+    ],
+    "Riscuri si hidrologie urbana": [
+        "Zona inundata",
+        "Rigola infundata",
+        "Scurgere apa",
+        "Acumulare apa pe carosabil",
+        "Alunecare de teren",
+        "Eroziune locala"
+    ],
+    "Alta": [
+        "Alta problema"
+    ]
+}
+
+LISTA_CATEGORII = list(CATEGORII.keys())
 
 FEATURE_LAYER_URL = "https://services.arcgis.com/9nrie6KNVyjacEqa/arcgis/rest/services/Rm.Valcea/FeatureServer/0"
 
@@ -28,25 +88,30 @@ os.makedirs(FOLDER_POZE, exist_ok=True)
 
 
 def clasifica(text):
-
     try:
+        lista_formatata = ""
+        for categorie, subcategorii in CATEGORII.items():
+            lista_formatata += f"\n{categorie}:\n"
+            for sub in subcategorii:
+                lista_formatata += f"- {sub}\n"
 
         raspuns = client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": """
-Clasifici sesizari urbane.
+                    "content": f"""
+Clasifici sesizari urbane pentru o aplicatie GIS.
 
-Categorii posibile:
-- Parcare neregulamentara
-- Deseuri
-- Gropi
-- Iluminat
-- Alta
+Alege categoria si subcategoria potrivita din lista:
 
-Raspunde doar cu numele categoriei.
+{lista_formatata}
+
+Raspunde strict in JSON, fara explicatii, in forma:
+{{
+  "categorie": "numele categoriei",
+  "subcategorie": "numele subcategoriei"
+}}
 """
                 },
                 {
@@ -57,19 +122,27 @@ Raspunde doar cu numele categoriei.
             temperature=0
         )
 
-        categorie = raspuns.choices[0].message.content.strip()
+        continut = raspuns.choices[0].message.content.strip()
+        rezultat = json.loads(continut)
 
-        if categorie in OPTIUNI:
-            return categorie
+        categorie = rezultat.get("categorie", "Alta")
+        subcategorie = rezultat.get("subcategorie", "Alta problema")
 
-        return "Alta"
+        if categorie not in CATEGORII:
+            categorie = "Alta"
+            subcategorie = "Alta problema"
+
+        if subcategorie not in CATEGORII[categorie]:
+            subcategorie = CATEGORII[categorie][0]
+
+        return categorie, subcategorie
 
     except Exception as e:
-        st.error(f"Eroare OpenAI: {e}")
-        return "Alta"
+        st.error(f"Eroare AI: {e}")
+        return "Alta", "Alta problema"
 
 
-def trimite_in_arcgis(descriere, categorie, cat_ai, lat, lon, fotografie=""):
+def trimite_in_arcgis(descriere, categorie, subcategorie, cat_ai, lat, lon, fotografie=""):
     feature = {
         "geometry": {
             "x": float(lon),
@@ -79,6 +152,7 @@ def trimite_in_arcgis(descriere, categorie, cat_ai, lat, lon, fotografie=""):
         "attributes": {
             "descriere": descriere,
             "categorie": categorie,
+            "subcategorie": subcategorie,
             "cat_ai": cat_ai,
             "status": "Noua",
             "data_rap": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -167,17 +241,25 @@ with col1:
     descriere = st.text_area("Descriere problema")
 
     if descriere.strip():
-        categorie_sugerata = clasifica(descriere)
-        st.info(f"Categorie sugerata de AI: {categorie_sugerata}")
-    else:
-        categorie_sugerata = "Alta"
+    categorie_sugerata, subcategorie_sugerata = clasifica(descriere)
+    st.info(f"AI sugereaza: {categorie_sugerata} / {subcategorie_sugerata}")
+else:
+    categorie_sugerata = "Alta"
+    subcategorie_sugerata = "Alta problema"
 
-    categorie = st.selectbox(
-        "Categorie finala",
-        OPTIUNI,
-        index=OPTIUNI.index(categorie_sugerata)
-    )
+categorie = st.selectbox(
+    "Categorie finala",
+    LISTA_CATEGORII,
+    index=LISTA_CATEGORII.index(categorie_sugerata)
+)
 
+subcategorie = st.selectbox(
+    "Subcategorie finala",
+    CATEGORII[categorie],
+    index=CATEGORII[categorie].index(subcategorie_sugerata)
+    if subcategorie_sugerata in CATEGORII[categorie]
+    else 0
+)
     st.markdown("### Fotografie")
 
     mod_foto = st.radio(
@@ -325,7 +407,7 @@ if st.button("Trimite sesizarea"):
         date_noi = pd.DataFrame([{
             "data_raportare": data_raportare,
             "descriere": descriere,
-            "categorie_sugerata_ai": categorie_sugerata,
+            "categorie_sugerata_ai": f"{categorie_sugerata} / {subcategorie_sugerata}",
             "categorie_finala": categorie,
             "latitudine": st.session_state.selected_lat,
             "longitudine": st.session_state.selected_lon,
@@ -343,7 +425,8 @@ if st.button("Trimite sesizarea"):
         rezultat_arcgis = trimite_in_arcgis(
             descriere=descriere,
             categorie=categorie,
-            cat_ai=categorie_sugerata,
+            subcategorie=subcategorie,
+            cat_ai=f"{categorie_sugerata} / {subcategorie_sugerata}",
             lat=st.session_state.selected_lat,
             lon=st.session_state.selected_lon,
             fotografie=nume_poza

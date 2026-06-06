@@ -256,7 +256,9 @@ if "selected_lon" not in st.session_state:
 
 if "geo_requested" not in st.session_state:
     st.session_state.geo_requested = False
-
+    
+if "photo_key" not in st.session_state:
+    st.session_state.photo_key = 0
 
 # ---------------------------
 # titlu
@@ -316,7 +318,7 @@ with col1:
         poza_upload = st.file_uploader(
             "Selecteaza o fotografie",
             type=["jpg", "jpeg", "png"],
-            key="upload_foto"
+            key=f"upload_foto_{st.session_state.photo_key}"
         )
 
         if poza_upload is not None:
@@ -325,7 +327,7 @@ with col1:
     elif mod_foto == "Fa o fotografie pe loc":
         poza_camera = st.camera_input(
             "Fotografie",
-            key="camera_foto"
+            key=f"camera_foto_{st.session_state.photo_key}"
         )
 
         if poza_camera is not None:
@@ -484,6 +486,8 @@ if st.button("Trimite sesizarea"):
 
             st.session_state.selected_lat = None
             st.session_state.selected_lon = None
+            st.session_state.photo_key += 1
+            st.rerun()
 
         else:
             st.error("Sesizarea nu a putut fi trimisa in ArcGIS Online.")

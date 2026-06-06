@@ -268,8 +268,8 @@ mod_foto = st.radio(
         index=0
     )
 
-    poza_upload = None
-    poza_camera = None
+poza_upload = None
+poza_camera = None
 
     if mod_foto == "Adauga foto":
         poza_upload = st.file_uploader(

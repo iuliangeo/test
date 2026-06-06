@@ -262,7 +262,7 @@ subcategorie = st.selectbox(
 )
 st.markdown("### Fotografie")
 
-    mod_foto = st.radio(
+mod_foto = st.radio(
         "Alege cum vrei sa adaugi fotografia",
         ["Fara fotografie", "Adauga foto", "Fa o fotografie pe loc"],
         index=0
